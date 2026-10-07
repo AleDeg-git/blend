@@ -34,6 +34,18 @@ h1{font-family:var(--dot);font-size:1.9rem;font-weight:700;margin:0;letter-spaci
 .row{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:10px}
 .rh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .idx{font-family:var(--dot);font-size:1.1rem;font-weight:700}
+.bn{display:flex;flex-direction:column;gap:4px;margin-top:28px}
+.bn input{font-family:var(--dot);font-weight:700;font-size:1.4rem}
+.sw{display:flex;align-items:center;gap:8px;cursor:pointer}
+input.inc{-webkit-appearance:none;appearance:none;width:38px;height:22px;padding:0;border:1px solid var(--text);border-radius:999px;position:relative;background:transparent;cursor:pointer;flex:none}
+input.inc::before{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:all .15s}
+input.inc:checked{border-color:var(--red)}
+input.inc:checked::before{left:19px;background:var(--red)}
+.row.off{opacity:.45}
+.rh .l{display:flex;align-items:center;gap:14px}
+textarea{width:100%;min-height:54px;resize:vertical;padding:8px 0;border:none;border-bottom:1px solid var(--line);background:transparent;color:var(--text);font-family:var(--mono);font-size:.9rem}
+textarea:focus{outline:none;border-bottom-color:var(--red)}
+.wf{grid-column:1/-1}
 .del{background:none;border:1px solid var(--line);color:var(--muted);width:26px;height:26px;border-radius:50%;cursor:pointer;font-family:var(--mono);font-size:.9rem;line-height:1}
 .del:hover{color:var(--red);border-color:var(--red)}
 .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px 10px}
@@ -72,6 +84,7 @@ footer b{color:var(--text);font-weight:700}
 <div class="kv"><span class="lbl">Acido malico</span><div class="val" id="r_ma"></div></div>
 <div class="kv"><span class="lbl">Acido lattico</span><div class="val" id="r_la"></div></div>
 </div>
+<label class="bn"><span class="lbl">Nome del blend</span><input id="bname" type="text" placeholder="es. Chianti Riserva 2026" maxlength="80"></label>
 <button class="btn" id="pdf" style="margin:24px 0 0">Esporta report PDF</button>
 <p class="note">Media ponderata sul volume. Un dato mancante azzera solo quel parametro, gli altri restano calcolati. Non considera la contrazione di volume né le trasformazioni successive.</p>
 <footer><div class="led"></div><span><b>Alessandro De Guidi</b> — Wine Consulting</span></footer>
@@ -457,7 +470,7 @@ let count=0,state={rows:[],V:0,res:{}};
 function addRow(){
   count++;
   const d=document.createElement('div');d.className='row';
-  d.innerHTML=`<div class="rh"><span class="idx">${String(count).padStart(2,'0')}</span><button class="del" aria-label="Rimuovi">×</button></div>
+  d.innerHTML=`<div class="rh"><div class="l"><span class="idx">${String(count).padStart(2,'0')}</span><label class="sw"><input type="checkbox" class="inc" checked><span class="lbl">Nel blend</span></label></div><button class="del" aria-label="Rimuovi">×</button></div>
   <div class="grid">
   <label class="w3 n"><span class="lbl">Nome</span><input data-t="nm" type="text" placeholder="Sangiovese"></label>
   <label class="w3 c"><span class="lbl">Codice</span><input data-t="cd" type="text" placeholder="A12"></label>
@@ -466,9 +479,12 @@ function addRow(){
   <label class="w2 c"><span class="lbl">Zuccheri g/L</span><input data-k="zu" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. malico g/L</span><input data-k="ma" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. lattico g/L</span><input data-k="la" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+  <label class="w2 c"><span class="lbl">pH</span><input data-k="ph" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+  <label class="wf"><span class="lbl">Commento / note di assaggio</span><textarea data-t="nt" placeholder="Colore, naso, bocca, note..."></textarea></label>
   </div>`;
   d.querySelector('.del').onclick=()=>{d.remove();calc()};
   d.addEventListener('input',calc);
+  d.querySelector('.inc').addEventListener('change',calc);
   rowsEl.appendChild(d);
 }
 const txt=(r,k)=>r.querySelector(`[data-t="${k}"]`).value.trim();
@@ -477,9 +493,11 @@ function show(id,n,u,sub,warn,zero){
   document.getElementById(id).innerHTML=`<div class="num${zero?' zero':''}">${n}<span class="u">${u}</span></div>`+(sub?`<span class="sub${warn?' warn':''}">${sub}</span>`:'');
 }
 function calc(){
-  const rows=[...rowsEl.querySelectorAll('.row')].map(r=>({nm:txt(r,'nm'),cd:txt(r,'cd'),v:val(r,'v'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la')})).filter(x=>x.v>0);
+  const all=[...rowsEl.querySelectorAll('.row')];
+  all.forEach(r=>r.classList.toggle('off',!r.querySelector('.inc').checked));
+  const rows=all.filter(r=>r.querySelector('.inc').checked).map(r=>({nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),v:val(r,'v'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la')})).filter(x=>x.v>0);
   const V=rows.reduce((s,x)=>s+x.v,0);
-  show('r_v',f(V),'hL','',false,!V);
+  show('r_v',f(V),'hL',rows.length+' di '+all.length+(all.length==1?' massa':' masse')+' nel blend',false,!V);
   state={rows,V,res:{}};
   const defs={ab:'% vol',zu:'g/L',ma:'g/L',la:'g/L'};
   for(const k in defs){
@@ -506,59 +524,105 @@ document.getElementById('theme').onclick=()=>{
 // Export PDF
 document.getElementById('pdf').onclick=async()=>{
   const btn=document.getElementById('pdf');
-  if(!state.V){btn.textContent='Inserisci almeno un volume';setTimeout(()=>btn.textContent='Esporta report PDF',2000);return}
+  const reset=(t,ms)=>{btn.textContent=t;setTimeout(()=>btn.textContent='Esporta report PDF',ms)};
+  if(!state.V){reset('Inserisci almeno un volume',2000);return}
   if(!window.jspdf){btn.textContent='PDF non disponibile';return}
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210,M=16;let y=M;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  const W=210,M=16,CW=W-2*M,LIM=270;
   const fx=(n,d=2)=>n.toLocaleString('it-IT',{maximumFractionDigits:d});
-  const line=(yy,c=210)=>{doc.setDrawColor(c);doc.setLineWidth(.2);doc.line(M,yy,W-M,yy)};
-  doc.setTextColor(17);doc.setFont('courier','bold');doc.setFontSize(24);doc.text('BLEND REPORT',M,y+6);
-  doc.setFillColor(215,25,33);doc.circle(W-M-2,y+3.5,2,'F');
-  y+=14;doc.setFont('courier','normal');doc.setFontSize(8);doc.setTextColor(120);
-  doc.text(new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase(),M,y);
-  y+=4;doc.setDrawColor(17);doc.setLineWidth(.5);doc.line(M,y,W-M,y);y+=10;
-  doc.setFontSize(8);doc.setTextColor(120);doc.text('CARATTERISTICHE DEL BLEND',M,y);y+=4;
-  const items=[['Volume totale',fx(state.V)+' hL',''],
-    ['Alcol',state.res.ab==null?'n.d.':fx(state.res.ab)+' % vol',state.res.ab==null?'':fx(state.V*state.res.ab)+' L alcol puro'],
-    ['Zuccheri',state.res.zu==null?'n.d.':fx(state.res.zu)+' g/L',state.res.zu==null?'':fx(state.V*state.res.zu/10)+' kg totali'],
-    ['Acido malico',state.res.ma==null?'n.d.':fx(state.res.ma)+' g/L',state.res.ma==null?'':fx(state.V*state.res.ma/10)+' kg totali'],
-    ['Acido lattico',state.res.la==null?'n.d.':fx(state.res.la)+' g/L',state.res.la==null?'':fx(state.V*state.res.la/10)+' kg totali']];
-  items.forEach(([a,b,c])=>{
-    y+=9;doc.setFont('courier','normal');doc.setFontSize(9);doc.setTextColor(120);doc.text(a.toUpperCase(),M,y);
-    doc.setFont('courier','bold');doc.setFontSize(15);doc.setTextColor(17);doc.text(b,W-M,y,{align:'right'});
-    if(c){doc.setFont('courier','normal');doc.setFontSize(7.5);doc.setTextColor(120);doc.text(c,W-M,y+4,{align:'right'});y+=3}
-    y+=3;line(y);
+  const name=(document.getElementById('bname').value.trim())||'Blend senza nome';
+  let y=M;
+  const hr=(yy,c=215,w=.2)=>{doc.setDrawColor(c);doc.setLineWidth(w);doc.line(M,yy,W-M,yy)};
+  const need=h=>{if(y+h>LIM){doc.addPage();y=M;return true}return false};
+  const txt=(t,x,yy,o)=>doc.text(String(t),x,yy,o);
+  const font=(st,sz,c)=>{doc.setFont('courier',st);doc.setFontSize(sz);doc.setTextColor(c)};
+  // Intestazione
+  font('normal',7.5,120);txt('BLEND REPORT',M,y+2);
+  doc.setFillColor(215,25,33);doc.circle(W-M-1.5,y+1,1.5,'F');
+  y+=10;font('bold',20,17);
+  const nl=doc.splitTextToSize(name,CW-8).slice(0,3);
+  nl.forEach((l,i)=>{txt(l,M,y);if(i<nl.length-1)y+=8.5});
+  y+=7;font('normal',8,120);
+  txt(new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase(),M,y);
+  y+=4;hr(y,17,.6);y+=10;
+  // Caratteristiche
+  font('normal',7.5,120);txt('CARATTERISTICHE DEL BLEND',M,y);y+=3;
+  const r=state.res;
+  const items=[['Volume totale',fx(state.V)+' hL',state.rows.length+(state.rows.length==1?' massa':' masse')],
+    ['Alcol',r.ab==null?'n.d.':fx(r.ab)+' % vol',r.ab==null?'':fx(state.V*r.ab)+' L alcol puro'],
+    ['Zuccheri',r.zu==null?'n.d.':fx(r.zu)+' g/L',r.zu==null?'':fx(state.V*r.zu/10)+' kg totali'],
+    ['Acido malico',r.ma==null?'n.d.':fx(r.ma)+' g/L',r.ma==null?'':fx(state.V*r.ma/10)+' kg totali'],
+    ['Acido lattico',r.la==null?'n.d.':fx(r.la)+' g/L',r.la==null?'':fx(state.V*r.la/10)+' kg totali']];
+  items.forEach(([l,v,sub])=>{
+    need(15);y+=9;
+    font('normal',9,120);txt(l.toUpperCase(),M,y);
+    font('bold',14,17);txt(v,W-M,y,{align:'right'});
+    if(sub){font('normal',7.5,120);txt(sub,W-M,y+4.5,{align:'right'});y+=4.5}
+    y+=3;hr(y);
   });
-  y+=12;doc.setFont('courier','normal');doc.setFontSize(8);doc.setTextColor(120);doc.text('MASSE UTILIZZATE',M,y);y+=3;
-  const cols=[['#',M],['NOME',M+8],['COD.',M+52],['HL',M+78],['%',M+92],['ALC',M+108],['ZUC',M+128],['MAL',M+146],['LAT',M+164]];
-  const head=()=>{y+=6;doc.setFontSize(7);doc.setTextColor(120);cols.forEach(([t,x])=>doc.text(t,x,y));y+=2;doc.setDrawColor(17);doc.setLineWidth(.3);doc.line(M,y,W-M,y)};
+  // Tabella masse
+  y+=14;need(30);
+  font('normal',7.5,120);txt('MASSE UTILIZZATE',M,y);y+=3;
+  const cols=[{t:'#',w:8,a:'l'},{t:'NOME',w:46,a:'l'},{t:'COD.',w:22,a:'l'},{t:'HL',w:16,a:'r'},{t:'%',w:14,a:'r'},{t:'ALC',w:15,a:'r'},{t:'ZUC',w:15,a:'r'},{t:'MAL',w:15,a:'r'},{t:'LAT',w:15,a:'r'},{t:'PH',w:12,a:'r'}];
+  const drawRow=(cells,bold,color)=>{
+    let x=M;
+    font(bold?'bold':'normal',8,color);
+    cols.forEach((c,i)=>{
+      if(c.a==='r')txt(cells[i],x+c.w-1,y,{align:'right'});else txt(cells[i],x+(i===0?0:0),y);
+      x+=c.w;
+    });
+  };
+  const head=()=>{y+=7;drawRow(cols.map(c=>c.t),false,120);y+=2.5;hr(y,17,.4)};
   head();
-  doc.setTextColor(17);
-  state.rows.forEach((r,i)=>{
-    if(y>270){doc.addPage();y=M;head()}
-    y+=6;doc.setFontSize(8);doc.setFont('courier','normal');
-    const g=v=>v==null||isNaN(v)?'-':fx(v);
-    const cells=[String(i+1).padStart(2,'0'),(r.nm||'Senza nome').slice(0,22),(r.cd||'-').slice(0,12),fx(r.v),fx(r.v/state.V*100,1),g(r.ab),g(r.zu),g(r.ma),g(r.la)];
-    cols.forEach(([,x],j)=>doc.text(cells[j],x,y));
-    y+=2;line(y);
+  const g=v=>v==null||isNaN(v)?'-':fx(v);
+  state.rows.forEach((x,i)=>{
+    if(need(9)){head()}
+    y+=6.5;
+    drawRow([String(i+1).padStart(2,'0'),(x.nm||'Senza nome').slice(0,26),(x.cd||'-').slice(0,12),fx(x.v),fx(x.v/state.V*100,1),g(x.ab),g(x.zu),g(x.ma),g(x.la),g(x.ph)],false,17);
+    y+=2.5;hr(y);
   });
-  y+=5;doc.setFontSize(7);doc.setTextColor(120);
-  doc.text('ALC = % vol | ZUC, MAL, LAT = g/L | HL = ettolitri | - / n.d. = dato non inserito',M,y);
-  y+=4;doc.text('Media ponderata sul volume. Non considera contrazione di volume o trasformazioni successive.',M,y);
+  need(12);y+=2;hr(y,17,.4);y+=6;
+  drawRow(['','BLEND','',fx(state.V),'100',r.ab==null?'-':fx(r.ab),r.zu==null?'-':fx(r.zu),r.ma==null?'-':fx(r.ma),r.la==null?'-':fx(r.la),'-'],true,17);
+  y+=3;hr(y,17,.4);
+  // Note di assaggio
+  const notes=state.rows.map((x,i)=>[i,x]).filter(([,x])=>x.nt);
+  if(notes.length){
+    y+=14;need(24);
+    font('normal',7.5,120);txt('NOTE DI ASSAGGIO',M,y);y+=2;
+    notes.forEach(([i,x])=>{
+      font('normal',8.5,60);
+      const lines=doc.splitTextToSize(x.nt,CW-8);
+      need(10+Math.min(lines.length,3)*4.2);
+      y+=7;font('bold',8.5,17);
+      txt(String(i+1).padStart(2,'0')+'  '+(x.nm||'Senza nome')+(x.cd?'  ['+x.cd+']':''),M,y);
+      font('normal',8.5,60);
+      lines.forEach(l=>{if(y+4.2>LIM){doc.addPage();y=M}y+=4.2;txt(l,M+8,y)});
+      y+=2.5;hr(y);
+    });
+  }
+  // Legenda
+  y+=10;need(14);
+  font('normal',6.5,130);
+  doc.splitTextToSize('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, MAL, LAT = g/L | PH = per campione, non calcolato sul blend | - / n.d. = dato non inserito. Valori del blend: media ponderata sul volume, senza contrazione di volume né trasformazioni successive.',CW).forEach(l=>{txt(l,M,y);y+=3.4});
+  // Piè di pagina
   const n=doc.getNumberOfPages();
-  for(let p=1;p<=n;p++){doc.setPage(p);doc.setDrawColor(210);doc.setLineWidth(.2);doc.line(M,284,W-M,284);
+  for(let k=1;k<=n;k++){
+    doc.setPage(k);hr(283,215,.2);
     doc.setFillColor(215,25,33);doc.circle(M+1,288,.9,'F');
-    doc.setFont('courier','bold');doc.setFontSize(7.5);doc.setTextColor(17);doc.text('ALESSANDRO DE GUIDI',M+4,288.7);
-    doc.setFont('courier','normal');doc.setTextColor(120);doc.text('- WINE CONSULTING',M+4+39,288.7);
-    doc.text(p+'/'+n,W-M,288.7,{align:'right'});}
+    font('bold',7,17);txt('ALESSANDRO DE GUIDI',M+4,288.8);
+    const w1=doc.getTextWidth('ALESSANDRO DE GUIDI');
+    font('normal',7,120);txt('- WINE CONSULTING',M+4+w1+1.5,288.8);
+    txt(k+' / '+n,W-M,288.8,{align:'right'});
+  }
   const d=new Date(),stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-  const blob=doc.output('blob'),fn='blend-report-'+stamp+'.pdf';
+  const slug=name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'blend';
+  const blob=doc.output('blob'),fn=slug+'-'+stamp+'.pdf';
   try{
     const file=new File([blob],fn,{type:'application/pdf'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Blend report'})}
-    else{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
-  }catch(e){if(e&&e.name!=='AbortError'){btn.textContent='Export non riuscito';setTimeout(()=>btn.textContent='Esporta report PDF',2500)}}
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name})}
+    else{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL&&URL.revokeObjectURL(u),4000)}
+  }catch(e){if(e&&e.name!=='AbortError')reset('Export non riuscito',2500)}
 };
 document.getElementById('add').onclick=()=>{addRow();calc()};
 addRow();addRow();calc();
