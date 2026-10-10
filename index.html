@@ -81,12 +81,14 @@ footer b{color:var(--text);font-weight:700}
 <div class="kv"><span class="lbl">Volume totale</span><div class="val" id="r_v"></div></div>
 <div class="kv"><span class="lbl">Alcol</span><div class="val" id="r_ab"></div></div>
 <div class="kv"><span class="lbl">Zuccheri</span><div class="val" id="r_zu"></div></div>
+<div class="kv"><span class="lbl">Acidità totale</span><div class="val" id="r_at"></div></div>
 <div class="kv"><span class="lbl">Acido malico</span><div class="val" id="r_ma"></div></div>
 <div class="kv"><span class="lbl">Acido lattico</span><div class="val" id="r_la"></div></div>
+<div class="kv"><span class="lbl">SO₂ totale</span><div class="val" id="r_so2"></div></div>
 </div>
 <label class="bn"><span class="lbl">Nome del blend</span><input id="bname" type="text" placeholder="es. Chianti Riserva 2026" maxlength="80"></label>
 <button class="btn" id="pdf" style="margin:24px 0 0">Esporta report PDF</button>
-<p class="note">Media ponderata sul volume. Un dato mancante azzera solo quel parametro, gli altri restano calcolati. Non considera la contrazione di volume né le trasformazioni successive.</p>
+<p class="note">Media ponderata sul volume. Un dato mancante azzera solo quel parametro, gli altri restano calcolati. Acidità totale (come acido tartarico) e SO₂ totale sono grandezze additive e si calcolano sul blend. pH e SO₂ libera no: dipendono dagli equilibri chimici della miscela. Non considera la contrazione di volume né le trasformazioni successive.</p>
 <footer><div class="led"></div><span><b>Alessandro De Guidi</b> — Wine Consulting</span></footer>
 </main>
 <script>/** @license
@@ -479,6 +481,8 @@ function addRow(){
   <label class="w2 c"><span class="lbl">Zuccheri g/L</span><input data-k="zu" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. malico g/L</span><input data-k="ma" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. lattico g/L</span><input data-k="la" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+  <label class="w2 c"><span class="lbl">Acidità tot g/L</span><input data-k="at" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+  <label class="w2 c"><span class="lbl">SO₂ totale mg/L</span><input data-k="so2" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">pH</span><input data-k="ph" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="wf"><span class="lbl">Commento / note di assaggio</span><textarea data-t="nt" placeholder="Colore, naso, bocca, note..."></textarea></label>
   </div>`;
@@ -495,11 +499,11 @@ function show(id,n,u,sub,warn,zero){
 function calc(){
   const all=[...rowsEl.querySelectorAll('.row')];
   all.forEach(r=>r.classList.toggle('off',!r.querySelector('.inc').checked));
-  const rows=all.filter(r=>r.querySelector('.inc').checked).map(r=>({nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),v:val(r,'v'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la')})).filter(x=>x.v>0);
+  const rows=all.filter(r=>r.querySelector('.inc').checked).map(r=>({nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),at:val(r,'at'),so2:val(r,'so2'),v:val(r,'v'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la')})).filter(x=>x.v>0);
   const V=rows.reduce((s,x)=>s+x.v,0);
   show('r_v',f(V),'hL',rows.length+' di '+all.length+(all.length==1?' massa':' masse')+' nel blend',false,!V);
   state={rows,V,res:{}};
-  const defs={ab:'% vol',zu:'g/L',ma:'g/L',la:'g/L'};
+  const defs={ab:'% vol',zu:'g/L',at:'g/L',ma:'g/L',la:'g/L',so2:'mg/L'};
   for(const k in defs){
     const missing=rows.filter(x=>x[k]===null||isNaN(x[k])).length;
     if(!rows.length||missing){
@@ -509,7 +513,7 @@ function calc(){
     }
     const c=rows.reduce((s,x)=>s+x.v*x[k],0)/V;
     state.res[k]=c;
-    show('r_'+k,f(c),defs[k],k==='ab'?`${f(V*c)} L alcol puro`:`${f(V*c/10)} kg totali`,false,false);
+    show('r_'+k,f(c),defs[k],k==='ab'?`${f(V*c)} L alcol puro`:k==='so2'?`${f(V*c/10)} g totali`:`${f(V*c/10)} kg totali`,false,false);
   }
 }
 
@@ -552,8 +556,10 @@ document.getElementById('pdf').onclick=async()=>{
   const items=[['Volume totale',fx(state.V)+' hL',state.rows.length+(state.rows.length==1?' massa':' masse')],
     ['Alcol',r.ab==null?'n.d.':fx(r.ab)+' % vol',r.ab==null?'':fx(state.V*r.ab)+' L alcol puro'],
     ['Zuccheri',r.zu==null?'n.d.':fx(r.zu)+' g/L',r.zu==null?'':fx(state.V*r.zu/10)+' kg totali'],
+    ['Acidità totale',r.at==null?'n.d.':fx(r.at)+' g/L',r.at==null?'':fx(state.V*r.at/10)+' kg totali'],
     ['Acido malico',r.ma==null?'n.d.':fx(r.ma)+' g/L',r.ma==null?'':fx(state.V*r.ma/10)+' kg totali'],
-    ['Acido lattico',r.la==null?'n.d.':fx(r.la)+' g/L',r.la==null?'':fx(state.V*r.la/10)+' kg totali']];
+    ['Acido lattico',r.la==null?'n.d.':fx(r.la)+' g/L',r.la==null?'':fx(state.V*r.la/10)+' kg totali'],
+    ['SO2 totale',r.so2==null?'n.d.':fx(r.so2)+' mg/L',r.so2==null?'':fx(state.V*r.so2/10)+' g totali']];
   items.forEach(([l,v,sub])=>{
     need(15);y+=9;
     font('normal',9,120);txt(l.toUpperCase(),M,y);
@@ -564,7 +570,7 @@ document.getElementById('pdf').onclick=async()=>{
   // Tabella masse
   y+=14;need(30);
   font('normal',7.5,120);txt('MASSE UTILIZZATE',M,y);y+=3;
-  const cols=[{t:'#',w:8,a:'l'},{t:'NOME',w:46,a:'l'},{t:'COD.',w:22,a:'l'},{t:'HL',w:16,a:'r'},{t:'%',w:14,a:'r'},{t:'ALC',w:15,a:'r'},{t:'ZUC',w:15,a:'r'},{t:'MAL',w:15,a:'r'},{t:'LAT',w:15,a:'r'},{t:'PH',w:12,a:'r'}];
+  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:36,a:'l'},{t:'COD.',w:16,a:'l'},{t:'HL',w:14,a:'r'},{t:'%',w:12,a:'r'},{t:'ALC',w:13,a:'r'},{t:'ZUC',w:13,a:'r'},{t:'AT',w:12,a:'r'},{t:'MAL',w:13,a:'r'},{t:'LAT',w:13,a:'r'},{t:'SO2',w:14,a:'r'},{t:'PH',w:12,a:'r'}];
   const drawRow=(cells,bold,color)=>{
     let x=M;
     font(bold?'bold':'normal',8,color);
@@ -579,11 +585,11 @@ document.getElementById('pdf').onclick=async()=>{
   state.rows.forEach((x,i)=>{
     if(need(9)){head()}
     y+=6.5;
-    drawRow([String(i+1).padStart(2,'0'),(x.nm||'Senza nome').slice(0,26),(x.cd||'-').slice(0,12),fx(x.v),fx(x.v/state.V*100,1),g(x.ab),g(x.zu),g(x.ma),g(x.la),g(x.ph)],false,17);
+    drawRow([String(i+1).padStart(2,'0'),(x.nm||'Senza nome').slice(0,20),(x.cd||'-').slice(0,9),fx(x.v),fx(x.v/state.V*100,1),g(x.ab),g(x.zu),g(x.at),g(x.ma),g(x.la),g(x.so2),g(x.ph)],false,17);
     y+=2.5;hr(y);
   });
   need(12);y+=2;hr(y,17,.4);y+=6;
-  drawRow(['','BLEND','',fx(state.V),'100',r.ab==null?'-':fx(r.ab),r.zu==null?'-':fx(r.zu),r.ma==null?'-':fx(r.ma),r.la==null?'-':fx(r.la),'-'],true,17);
+  drawRow(['','BLEND','',fx(state.V),'100',r.ab==null?'-':fx(r.ab),r.zu==null?'-':fx(r.zu),r.at==null?'-':fx(r.at),r.ma==null?'-':fx(r.ma),r.la==null?'-':fx(r.la),r.so2==null?'-':fx(r.so2),'-'],true,17);
   y+=3;hr(y,17,.4);
   // Note di assaggio
   const notes=state.rows.map((x,i)=>[i,x]).filter(([,x])=>x.nt);
@@ -604,7 +610,7 @@ document.getElementById('pdf').onclick=async()=>{
   // Legenda
   y+=10;need(14);
   font('normal',6.5,130);
-  doc.splitTextToSize('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, MAL, LAT = g/L | PH = per campione, non calcolato sul blend | - / n.d. = dato non inserito. Valori del blend: media ponderata sul volume, senza contrazione di volume né trasformazioni successive.',CW).forEach(l=>{txt(l,M,y);y+=3.4});
+  doc.splitTextToSize('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = per campione, non calcolato sul blend; SO2 libera non calcolata | - / n.d. = dato non inserito. Valori del blend: media ponderata sul volume, senza contrazione di volume né trasformazioni successive.',CW).forEach(l=>{txt(l,M,y);y+=3.4});
   // Piè di pagina
   const n=doc.getNumberOfPages();
   for(let k=1;k<=n;k++){
