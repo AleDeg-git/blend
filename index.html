@@ -55,7 +55,7 @@ textarea:focus{outline:none;border-bottom-color:var(--red)}
 .del:hover{color:var(--red);border-color:var(--red)}
 .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px 10px}
 .grid label{display:flex;flex-direction:column;gap:4px}
-.w3{grid-column:span 3}.w2{grid-column:span 2}
+.w3{grid-column:span 3}.w4{grid-column:span 4}.w2{grid-column:span 2}
 input{width:100%;padding:6px 0;border:none;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--text);font-family:var(--mono);font-size:1rem}
 input::placeholder{color:var(--line)}
 input:focus{outline:none;border-bottom-color:var(--red)}
@@ -82,19 +82,22 @@ footer b{color:var(--text);font-weight:700}
 <header><h1>Blend</h1><div class="hr"><button class="tg" id="theme" aria-label="Cambia tema">Chiaro / Scuro</button><div class="led"></div></div></header>
 <div id="rows"></div>
 <button class="btn" id="add" style="margin-bottom:10px">+ Aggiungi massa</button>
-<button class="btn" id="pdfc">Crea PDF campioni</button>
+<button class="btn" id="pdfc" style="margin:0 0 10px">Crea PDF campioni</button>
+<button class="btn" id="imp">Importa da PDF campioni</button>
+<input type="file" id="impf" accept="application/pdf,.pdf" hidden>
 <div class="res">
 <div class="kv"><span class="lbl">Volume totale</span><div class="val" id="r_v"></div></div>
 <div class="kv"><span class="lbl">Alcol</span><div class="val" id="r_ab"></div></div>
 <div class="kv"><span class="lbl">Zuccheri</span><div class="val" id="r_zu"></div></div>
 <div class="kv"><span class="lbl">Acidità totale</span><div class="val" id="r_at"></div></div>
+<div class="kv"><span class="lbl">Acidità volatile</span><div class="val" id="r_av"></div></div>
 <div class="kv"><span class="lbl">Acido malico</span><div class="val" id="r_ma"></div></div>
 <div class="kv"><span class="lbl">Acido lattico</span><div class="val" id="r_la"></div></div>
 <div class="kv"><span class="lbl">SO₂ totale</span><div class="val" id="r_so2"></div></div>
 </div>
 <label class="bn"><span class="lbl">Nome del blend</span><input id="bname" type="text" placeholder="es. Chianti Riserva 2026" maxlength="80"></label>
 <button class="btn" id="pdf" style="margin:24px 0 0">Crea PDF blend</button>
-<p class="note">Media ponderata sul volume messo nel blend (di default tutto il campione; puoi indicare quanti hL usarne). Un dato mancante azzera solo quel parametro, gli altri restano calcolati. Acidità totale (come acido tartarico) e SO₂ totale sono grandezze additive e si calcolano sul blend. pH e SO₂ libera no: dipendono dagli equilibri chimici della miscela. Non considera la contrazione di volume né le trasformazioni successive.</p>
+<p class="note">Media ponderata sul volume messo nel blend (di default tutto il campione; puoi indicare quanti hL usarne). Un dato mancante azzera solo quel parametro, gli altri restano calcolati. Acidità totale (come acido tartarico), acidità volatile (come acido acetico) e SO₂ totale sono grandezze additive e si calcolano sul blend. pH e SO₂ libera no: dipendono dagli equilibri chimici della miscela. Non considera la contrazione di volume né le trasformazioni successive. L’acidità volatile calcolata è quella del giorno dell’assemblaggio: dopo può salire per attività microbica, ossigeno, zuccheri residui, pH alto e SO₂ bassa, e dipende dal substrato, quindi non è prevedibile dal calcolo.</p>
 <footer><div class="led"></div><span><b>Alessandro De Guidi</b> — Wine Consulting</span></footer>
 </main>
 <script>/** @license
@@ -481,14 +484,15 @@ function addRow(){
   d.innerHTML=`<div class="rh"><div class="l"><span class="idx">${String(count).padStart(2,'0')}</span><label class="sw"><input type="checkbox" class="inc" checked><span class="lbl">Nel blend</span></label><label class="uh"><span class="lbl">hL nel blend</span><input data-k="u" type="number" inputmode="decimal" min="0" step="any" placeholder="tutti" aria-label="Ettolitri di questo campione da mettere nel blend"></label></div><button class="del" aria-label="Rimuovi">×</button></div>
   <div class="sub rest" data-rest></div>
   <div class="grid">
-  <label class="w3 n"><span class="lbl">Nome</span><input data-t="nm" type="text" placeholder="Sangiovese"></label>
-  <label class="w3 c"><span class="lbl">Codice</span><input data-t="cd" type="text" placeholder="A12"></label>
+  <label class="w4 n"><span class="lbl">Nome</span><input data-t="nm" type="text" placeholder="Sangiovese"></label>
+  <label class="w2 c"><span class="lbl">Codice</span><input data-t="cd" type="text" placeholder="A12"></label>
   <label class="w2 c"><span class="lbl">Volume hL</span><input data-k="v" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Alcol % vol</span><input data-k="ab" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Zuccheri g/L</span><input data-k="zu" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. malico g/L</span><input data-k="ma" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Ac. lattico g/L</span><input data-k="la" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Acidità tot g/L</span><input data-k="at" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+  <label class="w2 c"><span class="lbl">Ac. volatile g/L</span><input data-k="av" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">SO₂ totale mg/L</span><input data-k="so2" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">pH</span><input data-k="ph" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="wf"><span class="lbl">Commento / note di assaggio</span><textarea data-t="nt" placeholder="Colore, naso, bocca, note..."></textarea></label>
@@ -520,7 +524,7 @@ function calc(){
     if(vt>0&&over){hint.textContent='Supera il volume: nel blend vanno tutti i '+f(vt)+' hL';hint.className='sub rest warn'}
     else if(vt>0&&rest>0){hint.textContent='Restano '+f(rest)+' hL fuori dal blend';hint.className='sub rest'}
     else{hint.textContent='';hint.className='sub rest'}
-    return {i:i+1,nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),at:val(r,'at'),so2:val(r,'so2'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la'),vt,v:u,rest};
+    return {i:i+1,nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),at:val(r,'at'),av:val(r,'av'),so2:val(r,'so2'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la'),vt,v:u,rest};
   });
   const rows=data.filter(x=>x.v>0);
   const V=rows.reduce((s,x)=>s+x.v,0);
@@ -528,7 +532,7 @@ function calc(){
   const leftV=left.reduce((s,x)=>s+x.rest,0);
   show('r_v',f(V),'hL',rows.length+' di '+els.length+(els.length==1?' massa':' masse')+' nel blend'+(leftV>0?' · '+f(leftV)+' hL fuori':''),false,!V);
   state={rows,V,res:{},all:data.filter(x=>x.vt>0),left};
-  const defs={ab:'% vol',zu:'g/L',at:'g/L',ma:'g/L',la:'g/L',so2:'mg/L'};
+  const defs={ab:'% vol',zu:'g/L',at:'g/L',av:'g/L',ma:'g/L',la:'g/L',so2:'mg/L'};
   for(const k in defs){
     const missing=rows.filter(x=>x[k]===null||isNaN(x[k])).length;
     if(!rows.length||missing){
@@ -651,6 +655,7 @@ document.getElementById('pdf').onclick=()=>{
     ['Alcol',r.ab==null?'n.d.':fx(r.ab)+' % vol',r.ab==null?'':fx(state.V*r.ab)+' L alcol puro'],
     ['Zuccheri',r.zu==null?'n.d.':fx(r.zu)+' g/L',r.zu==null?'':fx(state.V*r.zu/10)+' kg totali'],
     ['Acidità totale',r.at==null?'n.d.':fx(r.at)+' g/L',r.at==null?'':fx(state.V*r.at/10)+' kg totali'],
+    ['Acidità volatile',r.av==null?'n.d.':fx(r.av)+' g/L',r.av==null?'':fx(state.V*r.av/10)+' kg totali'],
     ['Acido malico',r.ma==null?'n.d.':fx(r.ma)+' g/L',r.ma==null?'':fx(state.V*r.ma/10)+' kg totali'],
     ['Acido lattico',r.la==null?'n.d.':fx(r.la)+' g/L',r.la==null?'':fx(state.V*r.la/10)+' kg totali'],
     ['SO2 totale',r.so2==null?'n.d.':fx(r.so2)+' mg/L',r.so2==null?'':fx(state.V*r.so2/10)+' g totali']];
@@ -664,9 +669,9 @@ document.getElementById('pdf').onclick=()=>{
   // Masse utilizzate (HL = ettolitri messi nel blend)
   P.y+=14;P.need(30);
   P.label('MASSE UTILIZZATE');
-  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:36,a:'l'},{t:'COD.',w:16,a:'l'},{t:'HL',w:14,a:'r'},{t:'%',w:12,a:'r'},{t:'ALC',w:13,a:'r'},{t:'ZUC',w:13,a:'r'},{t:'AT',w:12,a:'r'},{t:'MAL',w:13,a:'r'},{t:'LAT',w:13,a:'r'},{t:'SO2',w:14,a:'r'},{t:'PH',w:12,a:'r'}];
-  P.table(cols,state.rows.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,20),(x.cd||'-').slice(0,9),fx(x.v),fx(x.v/state.V*100,1),nz(x.ab),nz(x.zu),nz(x.at),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
-    ['','BLEND','',fx(state.V),'100',nz(r.ab),nz(r.zu),nz(r.at),nz(r.ma),nz(r.la),nz(r.so2),'-']);
+  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:29,a:'l'},{t:'COD.',w:14,a:'l'},{t:'HL',w:14,a:'r'},{t:'%',w:12,a:'r'},{t:'ALC',w:13,a:'r'},{t:'ZUC',w:13,a:'r'},{t:'AT',w:12,a:'r'},{t:'AV',w:12,a:'r'},{t:'MAL',w:13,a:'r'},{t:'LAT',w:13,a:'r'},{t:'SO2',w:14,a:'r'},{t:'PH',w:12,a:'r'}];
+  P.table(cols,state.rows.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,16),(x.cd||'-').slice(0,7),fx(x.v),fx(x.v/state.V*100,1),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
+    ['','BLEND','',fx(state.V),'100',nz(r.ab),nz(r.zu),nz(r.at),nz(r.av),nz(r.ma),nz(r.la),nz(r.so2),'-']);
   // Masse fuori dal blend: ettolitri non utilizzati
   P.y+=14;P.need(30);
   P.label('MASSE FUORI DAL BLEND - HL NON UTILIZZATI');
@@ -679,7 +684,7 @@ document.getElementById('pdf').onclick=()=>{
     P.y+=7;P.font('normal',9,TX);P.txt('Tutte le masse sono state utilizzate per intero.',M,P.y);P.y+=3;
   }
   P.notes(state.rows.filter(x=>x.nt));
-  P.finish('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = per campione, non calcolato sul blend; SO2 libera non calcolata | - / n.d. = dato non inserito. Nelle masse utilizzate HL = ettolitri messi nel blend; nelle masse fuori dal blend TOTALI = volume del campione, USATI = nel blend, RIMASTI = non utilizzati. Valori del blend: media ponderata sul volume messo nel blend, senza contrazione di volume né trasformazioni successive.');
+  P.finish('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), AV (acidità volatile come ac. acetico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = per campione, non calcolato sul blend; SO2 libera non calcolata | - / n.d. = dato non inserito. Nelle masse utilizzate HL = ettolitri messi nel blend; nelle masse fuori dal blend TOTALI = volume del campione, USATI = nel blend, RIMASTI = non utilizzati. Valori del blend: media ponderata sul volume messo nel blend, senza contrazione di volume né trasformazioni successive.');
   sharePdf(P,name,(slugOf(name)||'blend')+'-'+stampNow()+'.pdf',btn,L_BLEND);
 };
 
@@ -700,12 +705,90 @@ document.getElementById('pdfc').onclick=()=>{
   });
   P.y+=14;P.need(30);
   P.label('ELENCO DELLE MASSE');
-  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:40,a:'l'},{t:'COD.',w:18,a:'l'},{t:'HL',w:16,a:'r'},{t:'ALC',w:14,a:'r'},{t:'ZUC',w:14,a:'r'},{t:'AT',w:13,a:'r'},{t:'MAL',w:14,a:'r'},{t:'LAT',w:14,a:'r'},{t:'SO2',w:15,a:'r'},{t:'PH',w:13,a:'r'}];
-  P.table(cols,state.all.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,22),(x.cd||'-').slice(0,10),fx(x.vt),nz(x.ab),nz(x.zu),nz(x.at),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
-    ['','TOTALE','',fx(tot),'','','','','','','']);
+  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:30,a:'l'},{t:'COD.',w:15,a:'l'},{t:'HL',w:16,a:'r'},{t:'ALC',w:14,a:'r'},{t:'ZUC',w:14,a:'r'},{t:'AT',w:13,a:'r'},{t:'AV',w:13,a:'r'},{t:'MAL',w:14,a:'r'},{t:'LAT',w:14,a:'r'},{t:'SO2',w:15,a:'r'},{t:'PH',w:13,a:'r'}];
+  P.table(cols,state.all.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,16),(x.cd||'-').slice(0,7),fx(x.vt),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
+    ['','TOTALE','',fx(tot),'','','','','','','','']);
   P.notes(state.all.filter(x=>x.nt));
-  P.finish('HL = ettolitri del campione | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = pH del campione | - = dato non inserito. Sono elencate tutte le masse con un volume, anche quelle escluse dal blend.');
+  P.finish('HL = ettolitri del campione | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), AV (acidità volatile come ac. acetico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = pH del campione | - = dato non inserito. Sono elencate tutte le masse con un volume, anche quelle escluse dal blend.');
+  // Dati nascosti nel PDF: servono a reimportare i valori esatti (nomi e note completi)
+  const payload={v:1,rows:state.all.map(x=>({nm:x.nm,cd:x.cd,nt:x.nt,vt:x.vt,ab:x.ab,zu:x.zu,at:x.at,av:x.av,ma:x.ma,la:x.la,so2:x.so2,ph:x.ph}))};
+  P.doc.setProperties({keywords:'BLENDDATA:'+btoa(unescape(encodeURIComponent(JSON.stringify(payload))))});
   sharePdf(P,'Panoramica campioni','campioni-'+stampNow()+'.pdf',btn,L_CAMP);
+};
+
+// --- Importa da PDF campioni ---
+const L_IMP='Importa da PDF campioni';
+const impBtn=document.getElementById('imp'),impFile=document.getElementById('impf');
+impBtn.onclick=()=>impFile.click();
+const loadScript=src=>new Promise((ok,ko)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>ko(new Error('script'));document.head.appendChild(e)});
+const numIt=t=>{t=String(t==null?'':t).trim();if(t===''||t==='-')return null;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isNaN(n)?null:n};
+// PDF creati con questa versione: i dati sono nascosti nel file (esatti, nomi e note completi)
+function readEmbedded(buf){
+  const u=new Uint8Array(buf);let t='';
+  for(let i=0;i<u.length;i+=32768)t+=String.fromCharCode.apply(null,u.subarray(i,i+32768));
+  const m=t.match(/BLENDDATA:([A-Za-z0-9+\/=]+)/);
+  if(!m)return null;
+  try{const p=JSON.parse(decodeURIComponent(escape(atob(m[1]))));return p&&Array.isArray(p.rows)?p.rows:null}catch(e){return null}
+}
+// PDF vecchi (senza dati nascosti): leggo la tabella dal testo, colonna per colonna (nomi lunghi abbreviati)
+async function readLegacy(buf){
+  if(!window.pdfjsLib){
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    const wu='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    try{const b=await (await fetch(wu)).blob();pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([b],{type:'text/javascript'}))}catch(e){pdfjsLib.GlobalWorkerOptions.workerSrc=wu}
+  }
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+  const MM=72/25.4,W=[7,40,18,16,14,14,13,14,14,15,13],X=[16];
+  W.forEach(w=>X.push(X[X.length-1]+w));
+  const recs={},order=[];let inNotes=false,cur=null;
+  for(let p=1;p<=pdf.numPages;p++){
+    const pg=await pdf.getPage(p),H=pg.view[3],tc=await pg.getTextContent(),lines={};
+    tc.items.forEach(it=>{
+      if(!it.str||!it.str.trim())return;
+      const k=Math.round(it.transform[5]);
+      (lines[k]=lines[k]||[]).push({x:it.transform[4]/MM,w:it.width/MM,t:it.str.trim()});
+    });
+    Object.keys(lines).map(Number).sort((a,b)=>b-a).forEach(k=>{
+      if((H-k)/MM>281)return; // piè di pagina
+      const it=lines[k].sort((a,b)=>a.x-b.x),text=it.map(o=>o.t).join(' ');
+      if(/^NOTE DI ASSAGGIO/.test(text)){inNotes=true;cur=null;return}
+      if(!inNotes){
+        if(!/^\d{2}$/.test(it[0].t)||it.length<8)return;
+        const c=Array(11).fill('');
+        it.forEach(o=>{const m=o.x+o.w/2,j=X.findIndex((s,i)=>i<11&&m>=s&&m<X[i+1]);if(j>=0)c[j]=(c[j]?c[j]+' ':'')+o.t});
+        const n=parseInt(c[0],10);recs[n]={nm:c[1]==='Senza nome'?'':c[1],cd:c[2]==='-'?'':c[2],nt:'',vt:numIt(c[3]),ab:numIt(c[4]),zu:numIt(c[5]),at:numIt(c[6]),av:null,ma:numIt(c[7]),la:numIt(c[8]),so2:numIt(c[9]),ph:numIt(c[10])};
+        order.push(n);
+      }else if(it[0].x<20){
+        if(/^\d{2}\s/.test(text)&&recs[parseInt(text,10)])cur=parseInt(text,10);else cur=null;
+      }else if(cur&&it[0].x<28){
+        recs[cur].nt+=(recs[cur].nt?' ':'')+text;
+      }
+    });
+  }
+  return order.map(n=>recs[n]);
+}
+impFile.onchange=async()=>{
+  const file=impFile.files[0];impFile.value='';
+  if(!file)return;
+  const anyData=[...rowsEl.querySelectorAll('input[type=number],input[type=text],textarea')].some(e=>e.value);
+  if(anyData&&!confirm('Sostituire le masse attuali con quelle del PDF?'))return;
+  impBtn.textContent='Leggo il PDF…';
+  try{
+    const buf=await file.arrayBuffer();
+    let rows=readEmbedded(buf),legacy=false;
+    if(!rows){rows=await readLegacy(buf);legacy=true}
+    if(!rows.length){flash(impBtn,'Nessun dato trovato',L_IMP);return}
+    rowsEl.innerHTML='';count=0;
+    rows.forEach(r=>{
+      addRow();const el=rowsEl.lastElementChild;
+      ['nm','cd','nt'].forEach(k=>{el.querySelector(`[data-t="${k}"]`).value=r[k]||''});
+      ['vt','ab','zu','at','av','ma','la','so2','ph'].forEach(k=>{
+        el.querySelector(`[data-k="${k==='vt'?'v':k}"]`).value=r[k]==null?'':r[k];
+      });
+    });
+    calc();
+    flash(impBtn,rows.length+(rows.length==1?' massa importata':' masse importate')+(legacy?' · PDF vecchio, controlla':''),L_IMP);
+  }catch(e){flash(impBtn,'Import non riuscito',L_IMP)}
 };
 document.getElementById('add').onclick=()=>{addRow();calc()};
 addRow();addRow();calc();
