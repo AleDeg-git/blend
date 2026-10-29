@@ -74,7 +74,10 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);display
 footer .led{width:7px;height:7px}
 footer span{font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 footer b{color:var(--text);font-weight:700}
-@media(min-width:600px){.grid{grid-template-columns:repeat(12,1fr)}.n{grid-column:span 4}.c{grid-column:span 2}}
+textarea.ta{min-height:0;height:auto;resize:none;overflow:hidden;display:block;padding:6px 0;font-size:1rem;line-height:1.3;word-break:break-word;overflow-wrap:anywhere}
+textarea::placeholder{color:var(--line)}
+.ta.over{color:var(--red)}
+@media(min-width:600px){.grid{grid-template-columns:repeat(12,1fr)}.n{grid-column:span 4}.c{grid-column:span 2}.nm{grid-column:span 6}.cv{grid-column:span 3}}
 </style>
 </head>
 <body>
@@ -83,8 +86,10 @@ footer b{color:var(--text);font-weight:700}
 <div id="rows"></div>
 <button class="btn" id="add" style="margin-bottom:10px">+ Aggiungi massa</button>
 <button class="btn" id="pdfc" style="margin:0 0 10px">Crea PDF campioni</button>
-<button class="btn" id="imp">Importa da PDF campioni</button>
+<button class="btn" id="imp" style="margin:0 0 10px">Importa PDF campioni (cantina)</button>
 <input type="file" id="impf" accept="application/pdf,.pdf" hidden>
+<button class="btn" id="impb">Importa PDF blend (masse rimaste)</button>
+<input type="file" id="impbf" accept="application/pdf,.pdf" hidden>
 <div class="res">
 <div class="kv"><span class="lbl">Volume totale</span><div class="val" id="r_v"></div></div>
 <div class="kv"><span class="lbl">Alcol</span><div class="val" id="r_ab"></div></div>
@@ -483,9 +488,11 @@ function addRow(){
   const d=document.createElement('div');d.className='row';
   d.innerHTML=`<div class="rh"><div class="l"><span class="idx">${String(count).padStart(2,'0')}</span><label class="sw"><input type="checkbox" class="inc" checked><span class="lbl">Nel blend</span></label><label class="uh"><span class="lbl">hL nel blend</span><input data-k="u" type="number" inputmode="decimal" min="0" step="any" placeholder="tutti" aria-label="Ettolitri di questo campione da mettere nel blend"></label></div><button class="del" aria-label="Rimuovi">×</button></div>
   <div class="sub rest" data-rest></div>
+  <div class="sub rest warn" data-lim></div>
   <div class="grid">
-  <label class="w4 n"><span class="lbl">Nome</span><input data-t="nm" type="text" placeholder="Sangiovese"></label>
-  <label class="w2 c"><span class="lbl">Codice</span><input data-t="cd" type="text" placeholder="A12"></label>
+  <label class="wf nm"><span class="lbl">Nome</span><textarea class="ta" rows="1" enterkeyhint="done" data-t="nm" placeholder="Sangiovese"></textarea></label>
+  <label class="w3 cv"><span class="lbl">Codice campione</span><textarea class="ta" rows="1" enterkeyhint="done" data-t="cd" placeholder="A12"></textarea></label>
+  <label class="w3 cv"><span class="lbl">N. vasca</span><textarea class="ta" rows="1" enterkeyhint="done" data-t="va" placeholder="V5"></textarea></label>
   <label class="w2 c"><span class="lbl">Volume hL</span><input data-k="v" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Alcol % vol</span><input data-k="ab" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
   <label class="w2 c"><span class="lbl">Zuccheri g/L</span><input data-k="zu" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
@@ -499,9 +506,18 @@ function addRow(){
   </div>`;
   d.querySelector('.del').onclick=()=>{d.remove();calc()};
   d.addEventListener('input',calc);
+  d.querySelectorAll('textarea.ta').forEach(t=>{
+    t.addEventListener('keydown',e=>{if(e.key==='Enter')e.preventDefault()});
+    t.addEventListener('input',()=>{if(/[\r\n]/.test(t.value))t.value=t.value.replace(/[\r\n]+/g,' ');autosize(t)});
+  });
   d.querySelector('.inc').addEventListener('change',calc);
   rowsEl.appendChild(d);
 }
+// I campi di testo crescono andando a capo: niente testo tagliato nella pagina
+const autosize=t=>{t.style.height='auto';t.style.height=t.scrollHeight+'px'};
+addEventListener('resize',()=>document.querySelectorAll('textarea.ta').forEach(autosize));
+// Limiti consigliati: oltre, avviso vicino al campione e testo rosso
+const LIM={nm:60,cd:30,va:20},LIMN={nm:'Nome',cd:'Codice',va:'Vasca'};
 const txt=(r,k)=>r.querySelector(`[data-t="${k}"]`).value.trim();
 const val=(r,k)=>{const x=r.querySelector(`[data-k="${k}"]`).value;return x===''?null:parseFloat(x)};
 function show(id,n,u,sub,warn,zero){
@@ -520,11 +536,18 @@ function calc(){
     if(uRaw!==null&&!isNaN(uRaw)){if(uRaw>vt){over=true;u=vt}else u=Math.max(0,uRaw)}
     if(!inc)u=0;
     const rest=Math.round((vt-u)*1e6)/1e6;
+    const tro=[];
+    for(const k in LIM){
+      const el=r.querySelector(`[data-t="${k}"]`),n=el.value.trim().length,o=n>LIM[k];
+      el.classList.toggle('over',o);
+      if(o)tro.push(`${LIMN[k]} ${n}/${LIM[k]}`);
+    }
+    r.querySelector('[data-lim]').textContent=tro.length?'Troppi caratteri: '+tro.join(' · ')+' (nel PDF va su più righe)':'';
     const hint=r.querySelector('[data-rest]');
     if(vt>0&&over){hint.textContent='Supera il volume: nel blend vanno tutti i '+f(vt)+' hL';hint.className='sub rest warn'}
     else if(vt>0&&rest>0){hint.textContent='Restano '+f(rest)+' hL fuori dal blend';hint.className='sub rest'}
     else{hint.textContent='';hint.className='sub rest'}
-    return {i:i+1,nm:txt(r,'nm'),cd:txt(r,'cd'),nt:txt(r,'nt'),ph:val(r,'ph'),at:val(r,'at'),av:val(r,'av'),so2:val(r,'so2'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la'),vt,v:u,rest};
+    return {i:i+1,nm:txt(r,'nm'),cd:txt(r,'cd'),va:txt(r,'va'),nt:txt(r,'nt'),ph:val(r,'ph'),at:val(r,'at'),av:val(r,'av'),so2:val(r,'so2'),ab:val(r,'ab'),zu:val(r,'zu'),ma:val(r,'ma'),la:val(r,'la'),vt,v:u,rest};
   });
   const rows=data.filter(x=>x.v>0);
   const V=rows.reduce((s,x)=>s+x.v,0);
@@ -576,24 +599,82 @@ function newPdf(kicker,title){
   P.txt=(t,x,yy,o)=>doc.text(String(t),x,yy,o);
   P.font=(st,sz,c)=>{doc.setFont('courier',st);doc.setFontSize(sz);doc.setTextColor(c)};
   P.label=t=>{P.font('normal',8,GR);P.txt(t,M,P.y);P.y+=3};
+  // Testo a capo: spezza per parole e, se una parola è più larga della colonna, per caratteri. Nulla viene tagliato.
+  P.wrap=(str,w)=>{
+    const out=[];let cur='';
+    const fits=t=>doc.getTextWidth(t)<=w;
+    String(str).trim().split(/\s+/).forEach(word=>{
+      if(!word)return;
+      const t=cur?cur+' '+word:word;
+      if(fits(t)){cur=t;return}
+      if(cur){out.push(cur);cur=''}
+      while(!fits(word)){
+        let k=word.length-1;while(k>1&&!fits(word.slice(0,k)))k--;
+        out.push(word.slice(0,k));word=word.slice(k);
+      }
+      cur=word;
+    });
+    if(cur)out.push(cur);
+    return out.length?out:[''];
+  };
   // Intestazione
   P.font('normal',8,GR);P.txt(kicker,M,P.y+2);
   doc.setFillColor(215,25,33);doc.circle(W-M-1.5,P.y+1,1.5,'F');
   P.y+=10;P.font('bold',20,TX);
-  const nl=doc.splitTextToSize(title,CW-8).slice(0,3);
+  const nl=P.wrap(title,CW-8);
   nl.forEach((l,i)=>{P.txt(l,M,P.y);if(i<nl.length-1)P.y+=8.5});
   P.y+=7;P.font('normal',8.5,GR);
   P.txt(new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase(),M,P.y);
   P.y+=4;P.hr(P.y,17,.6);P.y+=10;
-  // Tabella generica (colonne {t,w,a}, righe = array di celle, foot = riga totale opzionale)
+  // Cella campione: nome (grassetto), sotto codice campione e numero vasca, il tutto a capo se serve
+  P.sampleLines=(x,w)=>{
+    const out=[];
+    doc.setFont('courier','bold');doc.setFontSize(8);
+    P.wrap(x.nm||'Senza nome',w).forEach(l=>out.push({t:l,b:true}));
+    doc.setFont('courier','normal');doc.setFontSize(7.5);
+    const parts=[];if(x.cd)parts.push('Cod. '+x.cd);if(x.va)parts.push('Vasca '+x.va);
+    if(parts.length){
+      const one=parts.join('  -  ');
+      if(doc.getTextWidth(one)<=w)out.push({t:one,b:false});
+      else [['Cod. ',x.cd],['Vasca ',x.va]].forEach(([pre,v])=>{
+        if(!v)return;
+        const pw=doc.getTextWidth(pre);
+        P.wrap(v,w-pw).forEach((l,k)=>out.push({t:(k?' '.repeat(pre.length):pre)+l,b:false}));
+      });
+    }
+    return out;
+  };
+  // Tabella generica. Colonne {t:[riga1,riga2],w,a}: l'intestazione va a capo (es. MALICO / g/L),
+  // così i valori stanno tutti sulla stessa riga. La colonna campione può avere più righe.
   P.table=(cols,rowsArr,foot)=>{
-    const drawRow=(cells,bold,color)=>{
-      let x=M;P.font(bold?'bold':'normal',8,color);
-      cols.forEach((c,i)=>{if(c.a==='r')P.txt(cells[i],x+c.w-1,P.y,{align:'right'});else P.txt(cells[i],x,P.y);x+=c.w});
+    const LH=3.7;
+    const nLines=cells=>{let n=1;cells.forEach((c,i)=>{if(c&&typeof c==='object')n=Math.max(n,P.sampleLines(c,cols[i].w-2).length)});return n};
+    const drawCell=(cell,c,x,bold,color)=>{
+      if(cell&&typeof cell==='object'){
+        P.sampleLines(cell,c.w-2).forEach((l,k)=>{P.font(l.b?'bold':'normal',l.b?8:7.5,l.b?TX:60);P.txt(l.t,x,P.y+k*LH)});
+        return;
+      }
+      const t=String(cell==null?'':cell);if(!t)return;
+      let fs=8;P.font(bold?'bold':'normal',fs,color);
+      while(doc.getTextWidth(t)>c.w-1.5&&fs>5){fs-=.5;doc.setFontSize(fs)}
+      if(c.a==='r')P.txt(t,x+c.w-1,P.y,{align:'right'});else P.txt(t,x,P.y);
     };
-    const head=()=>{P.y+=7;drawRow(cols.map(c=>c.t),false,GR);P.y+=2.5;P.hr(P.y,17,.4)};
-    head();
-    rowsArr.forEach(c=>{if(P.need(9))head();P.y+=6.5;drawRow(c,false,TX);P.y+=2.5;P.hr(P.y)});
+    const drawRow=(cells,bold,color)=>{let x=M;cells.forEach((cell,i)=>{drawCell(cell,cols[i],x,bold,color);x+=cols[i].w})};
+    const head=()=>{
+      P.y+=5;
+      [0,1].forEach(li=>{
+        let x=M;P.font('normal',6.5,GR);
+        cols.forEach(c=>{const t=c.t[li]||'';if(t){if(c.a==='r')P.txt(t,x+c.w-1,P.y,{align:'right'});else P.txt(t,x,P.y)}x+=c.w});
+        P.y+=3.2;
+      });
+      P.y-=1.2;P.hr(P.y,17,.4);
+    };
+    P.need(30);head();
+    rowsArr.forEach(c=>{
+      const n=nLines(c);
+      if(P.need(n*LH+8))head();
+      P.y+=5.5;drawRow(c,false,TX);P.y+=(n-1)*LH+2.5;P.hr(P.y);
+    });
     if(foot){P.need(12);P.y+=2;P.hr(P.y,17,.4);P.y+=6;drawRow(foot,true,TX);P.y+=3;P.hr(P.y,17,.4)}
   };
   // Note di assaggio
@@ -602,11 +683,12 @@ function newPdf(kicker,title){
     P.y+=14;P.need(24);
     P.font('normal',8,GR);P.txt('NOTE DI ASSAGGIO',M,P.y);P.y+=2;
     list.forEach(x=>{
-      P.font('normal',9,50);
-      const lines=doc.splitTextToSize(x.nt,CW-8);
-      P.need(10+Math.min(lines.length,3)*4.4);
+      const title=String(x.i).padStart(2,'0')+'  '+(x.nm||'Senza nome')+(x.cd?'  ['+x.cd+']':'')+(x.va?'  - Vasca '+x.va:'');
+      P.font('bold',9,TX);const hl=P.wrap(title,CW);
+      P.font('normal',9,50);const lines=x.nt.split(/\r?\n/).flatMap(par=>P.wrap(par,CW-8));
+      P.need(8+hl.length*4.4+Math.min(lines.length,3)*4.4);
       P.y+=7;P.font('bold',9,TX);
-      P.txt(String(x.i).padStart(2,'0')+'  '+(x.nm||'Senza nome')+(x.cd?'  ['+x.cd+']':''),M,P.y);
+      hl.forEach((l,k)=>{if(k)P.y+=4.4;P.txt(l,M,P.y)});
       P.font('normal',9,50);
       lines.forEach(l=>{if(P.y+4.4>LIM){doc.addPage();P.y=M}P.y+=4.4;P.txt(l,M+8,P.y)});
       P.y+=2.5;P.hr(P.y);
@@ -638,7 +720,9 @@ async function sharePdf(P,title,fn,btn,label){
     else{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL&&URL.revokeObjectURL(u),4000)}
   }catch(e){if(e&&e.name!=='AbortError'){btn.textContent='Export non riuscito';setTimeout(()=>btn.textContent=label,2500)}}
 }
-const flash=(btn,t,label)=>{btn.textContent=t;setTimeout(()=>btn.textContent=label,2000)};
+const flash=(btn,t,label,ms=2000)=>{btn.textContent=t;setTimeout(()=>btn.textContent=label,ms)};
+// Dati nascosti nel PDF (campioni o blend) per poterli reimportare
+const packData=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
 
 // --- PDF del blend (con riepilogo degli ettolitri rimasti fuori) ---
 const L_BLEND='Crea PDF blend';
@@ -667,24 +751,26 @@ document.getElementById('pdf').onclick=()=>{
     P.y+=3;P.hr(P.y);
   });
   // Masse utilizzate (HL = ettolitri messi nel blend)
-  P.y+=14;P.need(30);
+  P.y+=14;P.need(55);
   P.label('MASSE UTILIZZATE');
-  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:29,a:'l'},{t:'COD.',w:14,a:'l'},{t:'HL',w:14,a:'r'},{t:'%',w:12,a:'r'},{t:'ALC',w:13,a:'r'},{t:'ZUC',w:13,a:'r'},{t:'AT',w:12,a:'r'},{t:'AV',w:12,a:'r'},{t:'MAL',w:13,a:'r'},{t:'LAT',w:13,a:'r'},{t:'SO2',w:14,a:'r'},{t:'PH',w:12,a:'r'}];
-  P.table(cols,state.rows.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,16),(x.cd||'-').slice(0,7),fx(x.v),fx(x.v/state.V*100,1),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
-    ['','BLEND','',fx(state.V),'100',nz(r.ab),nz(r.zu),nz(r.at),nz(r.av),nz(r.ma),nz(r.la),nz(r.so2),'-']);
+  const cols=[{t:['#'],w:7,a:'l'},{t:['CAMPIONE'],w:47,a:'l'},{t:['VOLUME','hL'],w:13,a:'r'},{t:['QUOTA','%'],w:11,a:'r'},{t:['ALCOL','% vol'],w:13,a:'r'},{t:['ZUCCH.','g/L'],w:13,a:'r'},{t:['AC.TOT.','g/L'],w:12,a:'r'},{t:['AC.VOL.','g/L'],w:12,a:'r'},{t:['MALICO','g/L'],w:12,a:'r'},{t:['LATTICO','g/L'],w:13,a:'r'},{t:['SO2 TOT','mg/L'],w:12,a:'r'},{t:['PH',''],w:9,a:'r'}];
+  P.table(cols,state.rows.map(x=>[String(x.i).padStart(2,'0'),x,fx(x.v),fx(x.v/state.V*100,1),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
+    ['','BLEND',fx(state.V),'100',nz(r.ab),nz(r.zu),nz(r.at),nz(r.av),nz(r.ma),nz(r.la),nz(r.so2),'-']);
   // Masse fuori dal blend: ettolitri non utilizzati
-  P.y+=14;P.need(30);
+  P.y+=14;P.need(55);
   P.label('MASSE FUORI DAL BLEND - HL NON UTILIZZATI');
   if(state.left.length){
-    const lc=[{t:'#',w:7,a:'l'},{t:'NOME',w:68,a:'l'},{t:'COD.',w:27,a:'l'},{t:'TOTALI',w:25,a:'r'},{t:'USATI',w:25,a:'r'},{t:'RIMASTI',w:26,a:'r'}];
+    const lc=[{t:['#'],w:7,a:'l'},{t:['CAMPIONE'],w:91,a:'l'},{t:['TOTALI','hL'],w:26,a:'r'},{t:['USATI','hL'],w:26,a:'r'},{t:['RIMASTI','hL'],w:28,a:'r'}];
     const tot=state.left.reduce((s,x)=>s+x.vt,0),usd=state.left.reduce((s,x)=>s+x.v,0),rst=state.left.reduce((s,x)=>s+x.rest,0);
-    P.table(lc,state.left.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,36),(x.cd||'-').slice(0,14),fx(x.vt),fx(x.v),fx(x.rest)]),
-      ['','TOTALE','',fx(tot),fx(usd),fx(rst)]);
+    P.table(lc,state.left.map(x=>[String(x.i).padStart(2,'0'),x,fx(x.vt),fx(x.v),fx(x.rest)]),
+      ['','TOTALE',fx(tot),fx(usd),fx(rst)]);
   }else{
     P.y+=7;P.font('normal',9,TX);P.txt('Tutte le masse sono state utilizzate per intero.',M,P.y);P.y+=3;
   }
   P.notes(state.rows.filter(x=>x.nt));
-  P.finish('HL = ettolitri | % = quota del volume | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), AV (acidità volatile come ac. acetico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = per campione, non calcolato sul blend; SO2 libera non calcolata | - / n.d. = dato non inserito. Nelle masse utilizzate HL = ettolitri messi nel blend; nelle masse fuori dal blend TOTALI = volume del campione, USATI = nel blend, RIMASTI = non utilizzati. Valori del blend: media ponderata sul volume messo nel blend, senza contrazione di volume né trasformazioni successive.');
+  P.finish('VOLUME = ettolitri (hL) | QUOTA = % del volume del blend | ALCOL = % vol | ZUCCH., AC.TOT. (acidità totale come ac. tartarico), AC.VOL. (acidità volatile come ac. acetico), MALICO, LATTICO = g/L | SO2 TOT = SO2 totale mg/L | PH = per campione, non calcolato sul blend; SO2 libera non calcolata | - / n.d. = dato non inserito. Nelle masse utilizzate il volume è quello messo nel blend; nelle masse fuori dal blend TOTALI = volume del campione, USATI = nel blend, RIMASTI = non utilizzati. Valori del blend: media ponderata sul volume messo nel blend, senza contrazione di volume né trasformazioni successive.');
+  // Dati nascosti: servono a «Importa PDF blend» per riportare in cantina solo le masse rimaste
+  P.doc.setProperties({keywords:'BLENDDATA:'+packData({v:2,t:'blend',name,rows:state.all.map(x=>({nm:x.nm,cd:x.cd,va:x.va,nt:x.nt,vt:x.vt,u:x.v,rest:x.rest,ab:x.ab,zu:x.zu,at:x.at,av:x.av,ma:x.ma,la:x.la,so2:x.so2,ph:x.ph}))})});
   sharePdf(P,name,(slugOf(name)||'blend')+'-'+stampNow()+'.pdf',btn,L_BLEND);
 };
 
@@ -703,21 +789,21 @@ document.getElementById('pdfc').onclick=()=>{
     P.font('bold',14,TX);P.txt(v,W-M,P.y,{align:'right'});
     P.y+=3;P.hr(P.y);
   });
-  P.y+=14;P.need(30);
+  P.y+=14;P.need(55);
   P.label('ELENCO DELLE MASSE');
-  const cols=[{t:'#',w:7,a:'l'},{t:'NOME',w:30,a:'l'},{t:'COD.',w:15,a:'l'},{t:'HL',w:16,a:'r'},{t:'ALC',w:14,a:'r'},{t:'ZUC',w:14,a:'r'},{t:'AT',w:13,a:'r'},{t:'AV',w:13,a:'r'},{t:'MAL',w:14,a:'r'},{t:'LAT',w:14,a:'r'},{t:'SO2',w:15,a:'r'},{t:'PH',w:13,a:'r'}];
-  P.table(cols,state.all.map(x=>[String(x.i).padStart(2,'0'),(x.nm||'Senza nome').slice(0,16),(x.cd||'-').slice(0,7),fx(x.vt),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
-    ['','TOTALE','',fx(tot),'','','','','','','','']);
+  const cols=[{t:['#'],w:7,a:'l'},{t:['CAMPIONE'],w:52,a:'l'},{t:['VOLUME','hL'],w:15,a:'r'},{t:['ALCOL','% vol'],w:14,a:'r'},{t:['ZUCCH.','g/L'],w:14,a:'r'},{t:['AC.TOT.','g/L'],w:13,a:'r'},{t:['AC.VOL.','g/L'],w:13,a:'r'},{t:['MALICO','g/L'],w:13,a:'r'},{t:['LATTICO','g/L'],w:14,a:'r'},{t:['SO2 TOT','mg/L'],w:13,a:'r'},{t:['PH',''],w:10,a:'r'}];
+  P.table(cols,state.all.map(x=>[String(x.i).padStart(2,'0'),x,fx(x.vt),nz(x.ab),nz(x.zu),nz(x.at),nz(x.av),nz(x.ma),nz(x.la),nz(x.so2),nz(x.ph)]),
+    ['','TOTALE',fx(tot),'','','','','','','','']);
   P.notes(state.all.filter(x=>x.nt));
-  P.finish('HL = ettolitri del campione | ALC = % vol | ZUC, AT (acidità totale come ac. tartarico), AV (acidità volatile come ac. acetico), MAL, LAT = g/L | SO2 = SO2 totale mg/L | PH = pH del campione | - = dato non inserito. Sono elencate tutte le masse con un volume, anche quelle escluse dal blend.');
+  P.finish('VOLUME = ettolitri (hL) del campione | ALCOL = % vol | ZUCCH., AC.TOT. (acidità totale come ac. tartarico), AC.VOL. (acidità volatile come ac. acetico), MALICO, LATTICO = g/L | SO2 TOT = SO2 totale mg/L | PH = pH del campione | - = dato non inserito. Sono elencate tutte le masse con un volume, anche quelle escluse dal blend.');
   // Dati nascosti nel PDF: servono a reimportare i valori esatti (nomi e note completi)
-  const payload={v:1,rows:state.all.map(x=>({nm:x.nm,cd:x.cd,nt:x.nt,vt:x.vt,ab:x.ab,zu:x.zu,at:x.at,av:x.av,ma:x.ma,la:x.la,so2:x.so2,ph:x.ph}))};
-  P.doc.setProperties({keywords:'BLENDDATA:'+btoa(unescape(encodeURIComponent(JSON.stringify(payload))))});
+  const payload={v:2,t:'camp',rows:state.all.map(x=>({nm:x.nm,cd:x.cd,va:x.va,nt:x.nt,vt:x.vt,ab:x.ab,zu:x.zu,at:x.at,av:x.av,ma:x.ma,la:x.la,so2:x.so2,ph:x.ph}))};
+  P.doc.setProperties({keywords:'BLENDDATA:'+packData(payload)});
   sharePdf(P,'Panoramica campioni','campioni-'+stampNow()+'.pdf',btn,L_CAMP);
 };
 
 // --- Importa da PDF campioni ---
-const L_IMP='Importa da PDF campioni';
+const L_IMP='Importa PDF campioni (cantina)';
 const impBtn=document.getElementById('imp'),impFile=document.getElementById('impf');
 impBtn.onclick=()=>impFile.click();
 const loadScript=src=>new Promise((ok,ko)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>ko(new Error('script'));document.head.appendChild(e)});
@@ -728,7 +814,7 @@ function readEmbedded(buf){
   for(let i=0;i<u.length;i+=32768)t+=String.fromCharCode.apply(null,u.subarray(i,i+32768));
   const m=t.match(/BLENDDATA:([A-Za-z0-9+\/=]+)/);
   if(!m)return null;
-  try{const p=JSON.parse(decodeURIComponent(escape(atob(m[1]))));return p&&Array.isArray(p.rows)?p.rows:null}catch(e){return null}
+  try{const p=JSON.parse(decodeURIComponent(escape(atob(m[1]))));return p&&Array.isArray(p.rows)?p:null}catch(e){return null}
 }
 // PDF vecchi (senza dati nascosti): leggo la tabella dal testo, colonna per colonna (nomi lunghi abbreviati)
 async function readLegacy(buf){
@@ -767,28 +853,56 @@ async function readLegacy(buf){
   }
   return order.map(n=>recs[n]);
 }
+const anyData=()=>[...rowsEl.querySelectorAll('input[type=number],textarea')].some(e=>e.value);
+function fillRows(rows){
+  rowsEl.innerHTML='';count=0;
+  rows.forEach(r=>{
+    addRow();const el=rowsEl.lastElementChild;
+    ['nm','cd','va','nt'].forEach(k=>{el.querySelector(`[data-t="${k}"]`).value=r[k]||''});
+    ['vt','ab','zu','at','av','ma','la','so2','ph'].forEach(k=>{
+      el.querySelector(`[data-k="${k==='vt'?'v':k}"]`).value=r[k]==null?'':r[k];
+    });
+  });
+  rowsEl.querySelectorAll('textarea.ta').forEach(autosize);
+  calc();
+}
+// Import 1: PDF campioni = tutta la cantina
 impFile.onchange=async()=>{
   const file=impFile.files[0];impFile.value='';
   if(!file)return;
-  const anyData=[...rowsEl.querySelectorAll('input[type=number],input[type=text],textarea')].some(e=>e.value);
-  if(anyData&&!confirm('Sostituire le masse attuali con quelle del PDF?'))return;
   impBtn.textContent='Leggo il PDF…';
   try{
     const buf=await file.arrayBuffer();
-    let rows=readEmbedded(buf),legacy=false;
+    const p=readEmbedded(buf);
+    if(p&&p.t==='blend'){flash(impBtn,'Questo è un PDF blend: usa «Importa PDF blend»',L_IMP,3500);return}
+    let rows=p?p.rows:null,legacy=false;
     if(!rows){rows=await readLegacy(buf);legacy=true}
     if(!rows.length){flash(impBtn,'Nessun dato trovato',L_IMP);return}
-    rowsEl.innerHTML='';count=0;
-    rows.forEach(r=>{
-      addRow();const el=rowsEl.lastElementChild;
-      ['nm','cd','nt'].forEach(k=>{el.querySelector(`[data-t="${k}"]`).value=r[k]||''});
-      ['vt','ab','zu','at','av','ma','la','so2','ph'].forEach(k=>{
-        el.querySelector(`[data-k="${k==='vt'?'v':k}"]`).value=r[k]==null?'':r[k];
-      });
-    });
-    calc();
+    if(anyData()&&!confirm('Sostituire le masse attuali con quelle del PDF?')){impBtn.textContent=L_IMP;return}
+    fillRows(rows);
     flash(impBtn,rows.length+(rows.length==1?' massa importata':' masse importate')+(legacy?' · PDF vecchio, controlla':''),L_IMP);
   }catch(e){flash(impBtn,'Import non riuscito',L_IMP)}
+};
+// Import 2: PDF blend = togli le masse usate (esaurite) o riduci il volume usato. Restano le masse aggiornate per il blend successivo.
+const L_IMPB='Importa PDF blend (masse rimaste)';
+const impbBtn=document.getElementById('impb'),impbFile=document.getElementById('impbf');
+impbBtn.onclick=()=>impbFile.click();
+impbFile.onchange=async()=>{
+  const file=impbFile.files[0];impbFile.value='';
+  if(!file)return;
+  impbBtn.textContent='Leggo il PDF…';
+  try{
+    const p=readEmbedded(await file.arrayBuffer());
+    if(!p){flash(impbBtn,'PDF blend non riconosciuto: rifallo con questa versione',L_IMPB,3500);return}
+    if(p.t!=='blend'){flash(impbBtn,'Questo è un PDF campioni: usa «Importa PDF campioni»',L_IMPB,3500);return}
+    const left=p.rows.filter(r=>(r.rest||0)>1e-6);
+    const used=p.rows.length-left.length,reduced=left.filter(r=>(r.u||0)>1e-6).length;
+    if(!left.length){flash(impbBtn,'Il blend ha usato tutte le masse: in cantina non resta nulla',L_IMPB,3500);return}
+    if(anyData()&&!confirm('Sostituire le masse attuali con quelle rimaste dopo il blend'+(p.name?' «'+p.name+'»':'')+'?')){impbBtn.textContent=L_IMPB;return}
+    fillRows(left.map(r=>Object.assign({},r,{vt:Math.round(r.rest*1e6)/1e6})));
+    document.getElementById('bname').value='';
+    flash(impbBtn,'Cantina aggiornata: '+left.length+(left.length==1?' massa':' masse')+' ('+reduced+' ridott'+(reduced==1?'a':'e')+', '+used+' eliminat'+(used==1?'a':'e')+')',L_IMPB,4000);
+  }catch(e){flash(impbBtn,'Import non riuscito',L_IMPB)}
 };
 document.getElementById('add').onclick=()=>{addRow();calc()};
 addRow();addRow();calc();
